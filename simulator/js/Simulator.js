@@ -775,7 +775,7 @@ export default class Simulator {
   }
 
   checkScenarioCompletion() {
-    return this.carStation > 50.0
+    return this.carStation >= self.editor.lanePath.arcLength - 5.0;
   }
 
   step(timestamp) {

@@ -99,6 +99,7 @@ class PlanningServer(HTTPServer):
         self.handles_planning_requests = False
         if status_string == 'reset':
             self.self.fail_reason = ''
+            self.handles_planning_requests = True
         if status_string == 'completed':
             self.self.fail_reason  = ''
             self.case_completed = True
