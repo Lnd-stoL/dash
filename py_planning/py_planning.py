@@ -19,7 +19,7 @@ def _run_visualization_server():
                 self.send_header('Expires', '0')
                 SimpleHTTPRequestHandler.end_headers(self)
 
-        httpd = HTTPServer(("127.0.0.1", 8000), Handler)
+        httpd = HTTPServer(("127.0.0.1", 8008), Handler)
         httpd.serve_forever()
 
     thread = Thread(target=server_thread)

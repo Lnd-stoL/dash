@@ -93,7 +93,8 @@ export default class Simulator {
     this.fpsTime = 0;
     this.fps = 0;
     this.simulatedTime = 0;
-    this.lastPlanTime = null;
+    this.lastPlanRequestTime = null;
+    this.latestPlanTimestamp = null;
     this.averagePlanTime = new MovingAverage(20);
 
     window.addEventListener('resize', e => {
@@ -126,9 +127,9 @@ export default class Simulator {
     this.welcomeModal = document.getElementById('welcome-modal');
     document.getElementById('show-welcome-modal').addEventListener('click', e => this.welcomeModal.classList.add('is-active'));
 
-    if (window.localStorage.getItem(WELCOME_MODAL_KEY) !== 'hide') {
-      this.welcomeModal.classList.add('is-active');
-    }
+    // if (window.localStorage.getItem(WELCOME_MODAL_KEY) !== 'hide') {
+    //  this.welcomeModal.classList.add('is-active');
+    // }
 
     this.collisionMessage = document.getElementById('collision-message');
     this.successMessage = document.getElementById('success-message');
@@ -312,6 +313,8 @@ export default class Simulator {
     this.editor.enabled = false;
     this.editorCameraControls.enabled = false;
 
+    this.latestPlanTimestamp = null;
+
     this.scene.fog = this.sceneFog;
     this.carObject.visible = true;
 
@@ -426,6 +429,9 @@ export default class Simulator {
 
     this.successMessage.classList.remove('is-active');
     this.collisionMessage.classList.remove('is-active');
+
+    this.latestPlanTimestamp = null;
+    this.showPlannerUnavailable(false);
   }
 
   loadScenario() {
@@ -441,6 +447,8 @@ export default class Simulator {
     this.autonomousModeButton.classList.remove('is-selected', 'is-link');
 
     this.carControllerMode = 'manual';
+
+    this.showPlannerUnavailable(false);
   }
 
   enableAutonomousMode() {
@@ -539,6 +547,15 @@ export default class Simulator {
     window.localStorage.setItem(WELCOME_MODAL_KEY, 'hide');
   }
 
+  showPlannerUnavailable(show) {
+    const message = document.getElementById("planner-unavailable-message");
+    if (show) {
+      message.classList.add('is-active');
+    } else {
+      message.classList.remove('is-active');
+    }
+  }
+
   setHideCollisionMessageOnClickOutside() {
     if (!this.collisionMessage.contains(event.target)) {
       this.collisionMessage.classList.remove('is-active');
@@ -550,7 +567,7 @@ export default class Simulator {
 
   startPlanner(pose, station) {
     this.plannerReady = false;
-    this.lastPlanTime = performance.now();
+    this.lastPlanRequestTime = performance.now();
 
     // In order to create a stable trajectory between successive planning
     // cycles, we must compensate for the latency between when a planning cycle
@@ -589,9 +606,17 @@ export default class Simulator {
 
   receivePlannedPath(event) {
     if (event.data.error) {
-      document.getElementById('planner-error').classList.remove('is-hidden');
+      if (event.data.error === "planner_unavailable") {
+        this.showPlannerUnavailable(true);
+      } else {
+        document.getElementById('planner-error').classList.remove('is-hidden');
+      }
       return;
     }
+
+    this.showPlannerUnavailable(false);
+
+    this.latestPlanTimestamp = performance.now();
 
     if (this.waitingForFirstPlan && !this.plannerReset) {
       this.waitingForFirstPlan = false;
@@ -604,7 +629,7 @@ export default class Simulator {
     const { fromVehicleParams, vehiclePose, vehicleStation, latticeStartStation, config, dynamicObstacleGrid } = event.data;
     let { path, fromVehicleSegment } = event.data;
 
-    this.averagePlanTime.addSample((performance.now() - this.lastPlanTime) / 1000);
+    this.averagePlanTime.addSample((performance.now() - this.lastPlanRequestTime) / 1000);
     this.plannerReady = true;
 
     if (this.plannerReset) return;
@@ -722,13 +747,14 @@ export default class Simulator {
   }
 
   _hasCarDynamicObstacleCollision(carRectangle) {
-    for (const obstacle of this.staticObstacles) {
+    for (const obstacle of this.dynamicObstaclesGroup.children) {
+      const positoin_at_time = obstacle.position
       const obstacleRectangle = {
-        x: obstacle.pos.x,
-        y: obstacle.pos.y,
-        width: obstacle.width,
-        height: obstacle.height,
-        angle: obstacle.rot,
+        x: positoin_at_time.x,
+        y: positoin_at_time.z,
+        width: obstacle.size.w + 0.3,  // 30 cm is collision buffer
+        height: obstacle.size.h + 0.3,
+        angle: obstacle.rotation.y,
       };
       if (areRectanglesColliding(carRectangle, obstacleRectangle)) {
         return true;
@@ -775,11 +801,17 @@ export default class Simulator {
   }
 
   checkScenarioCompletion() {
-    return this.carStation >= self.editor.lanePath.arcLength - 5.0;
+    return this.carStation >= this.editor.lanePath.arcLength - 5.0;
   }
 
   step(timestamp) {
     if (this.prevTimestamp == null) {
+      this.prevTimestamp = timestamp;
+      requestAnimationFrame(this.step.bind(this));
+      return;
+    }
+
+    if (this.latestPlanTimestamp != null && (performance.now() - this.latestPlanTimestamp) > 500) {
       this.prevTimestamp = timestamp;
       requestAnimationFrame(this.step.bind(this));
       return;
@@ -841,7 +873,7 @@ export default class Simulator {
       if (any_collision != null) {
         this.pauseScenario();
         this.collisionMessage.classList.add('is-active');
-        this.collisionMessage.getElementById('collision-message-text').innerText = "Case failed: " + any_collision;
+        document.getElementById('collision-message-text').innerText = "Case failed: " + any_collision;
 
         this.pathPlannerWorker.postMessage({
           type: 'notify_case_status',

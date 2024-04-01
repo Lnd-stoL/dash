@@ -14,7 +14,7 @@ function init() {
   } catch (e) {
     console.log('Error initializing path planner:');
     console.log(e);
-    self.postMessage({ error: true });
+    self.postMessage({ error: "initialization_failed" });
     return;
   }
 
@@ -38,14 +38,23 @@ function init() {
 
     pathPlanner.config = config;
 
-    try {
-      const { path, fromVehicleSegment, fromVehicleParams, latticeStartStation, dynamicObstacleGrid } =
-          pathPlanner.plan(vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles);
+    let planner_result;
+    while (true) {
+      try {
+        planner_result = pathPlanner.plan(vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles);
+      } catch (error) {
+        console.log('PathPlannerWorker error');
+        console.log(error);
+        break;
+      }
 
-      self.postMessage({ path, fromVehicleSegment, fromVehicleParams, vehiclePose, vehicleStation, latticeStartStation, config, dynamicObstacleGrid });
-    } catch (error) {
-      console.log('PathPlannerWorker error');
-      console.log(error);
+      if (planner_result.planner_state == "unavailable") {
+        self.postMessage({ error: "planner_unavailable" });
+      } else {
+        const { path, fromVehicleSegment, fromVehicleParams, latticeStartStation, dynamicObstacleGrid } = planner_result;
+        self.postMessage({ path, fromVehicleSegment, fromVehicleParams, vehiclePose, vehicleStation, latticeStartStation, config, dynamicObstacleGrid });
+        break;
+      }
     }
   };
 }

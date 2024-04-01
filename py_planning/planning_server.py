@@ -5,14 +5,16 @@ import traceback
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
 from dacite import from_dict
+from shapely.geometry import Point
 
-from .data_types import State
+from .data_types import _RawState, beatify_state, PlannedPath
 
 
 class JSONRequestHandler(BaseHTTPRequestHandler):
-    def __init__(self, do_plan, on_case_status, *args, **kwargs):
+    def __init__(self, do_plan, on_case_status, verify_planned_trajectory, *args, **kwargs):
         self.do_plan = do_plan
         self.on_case_status = on_case_status
+        self.verify_planned_trajectory = verify_planned_trajectory
         super().__init__(*args, **kwargs)
 
     def do_OPTIONS(self):
@@ -26,19 +28,26 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
             self.plan_request()
         elif parsed_path.path == '/notify_case_status':
             self.notify_case_status_request()
+        elif parsed_path.path == '/ping':
+            self.ping_request()
         else:
             self.send_response(404)
+
+    def ping_request(self):
+        # Send the "200 OK" response
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write('{"status": "ok"}')
 
     def plan_request(self):
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
         try:
-            state = json.loads(post_data)
-        except json.JSONDecodeError:
-            response = {'status': 'error', 'message': 'Invalid JSON'}
-
-        try:
-            response = self.do_plan(from_dict(data_class=State, data=state))
+            state = from_dict(data_class=_RawState, data=json.loads(post_data))
+            response = self.do_plan(beatify_state(state))
+            if not self.verify_planned_trajectory(response):
+                response = {'status': 'error', 'message': 'trajectory verification failed'}
         except Exception:
             print('Exception while planning: ', traceback.format_exc())
             response = {'status': 'error', 'message': traceback.format_exc()}
@@ -89,7 +98,11 @@ class PlanningServer(HTTPServer):
         self.fail_reason = ''
 
     def finish_request(self, request, client_address):
-        self.RequestHandlerClass(self.do_plan, self.on_case_status, request, client_address, self)
+        self.RequestHandlerClass(
+            self.do_plan,
+            self.on_case_status,
+            self.verify_planned_trajectory,
+            request, client_address, self)
 
     def set_planner(self, do_plan):
         self.do_plan = do_plan
@@ -98,14 +111,31 @@ class PlanningServer(HTTPServer):
         status_string = status["status"]
         self.handles_planning_requests = False
         if status_string == 'reset':
-            self.self.fail_reason = ''
+            self.fail_reason = ''
             self.handles_planning_requests = True
         if status_string == 'completed':
-            self.self.fail_reason  = ''
+            self.fail_reason  = ''
             self.case_completed = True
         if status_string == 'failed':
             self.case_completed = False
             self.fail_reason = status["reason"]
+
+    def verify_planned_trajectory(self, planned_path: PlannedPath):
+        if len(planned_path.states) < 2:
+            print("Invalid planned trajectory: too short.")
+            self.handles_planning_requests = False
+            self.case_completed = False
+            return False
+
+        MAX_VELOCITY = 30.0  # m/s
+        for state in planned_path.states:
+            if state.velocity > MAX_VELOCITY:
+                print("Invalid planned trajectory: too high velocity: ", state.velocity, " > ",MAX_VELOCITY)
+                self.handles_planning_requests = False
+                self.case_completed = False
+                return False
+
+        return True
 
     def run(self):
         self.handles_planning_requests = True

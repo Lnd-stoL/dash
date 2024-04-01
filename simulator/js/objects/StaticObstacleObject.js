@@ -13,7 +13,7 @@ export default class StaticObstacleObject extends THREE.Object3D {
     mesh2D.layers.set(2);
     this.add(mesh2D);
 
-    const stoneTexture = new THREE.TextureLoader().load('http://127.0.0.1:8000/images/stone.jpg');
+    const stoneTexture = new THREE.TextureLoader().load('http://127.0.0.1:8008/images/stone.jpg');
     stoneTexture.wrapS = THREE.RepeatWrapping
     stoneTexture.wrapT = THREE.RepeatWrapping
     stoneTexture.magFilter = THREE.NearestFilter

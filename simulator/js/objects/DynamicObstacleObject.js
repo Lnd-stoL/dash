@@ -4,6 +4,7 @@ export default class DynamicObstacleObject extends THREE.Object3D {
 
     this.dynamicObstacle = dynamicObstacle;
     this.lanePath = lanePath;
+    this.size = dynamicObstacle.size;
 
     const colors = {
       vehicle: 0xff8800,

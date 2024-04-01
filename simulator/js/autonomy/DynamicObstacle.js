@@ -73,7 +73,7 @@ export default class DynamicObstacle {
         v1[0], v1[1], 0.75
       );
     });
-    
+
     // Collision dilation (drawn in front, z = 0.25)
     const collisionHalfWidth = this.size.w + config.collisionDilationS;
     const collisionHalfHeight = this.size.h + config.collisionDilationL;
