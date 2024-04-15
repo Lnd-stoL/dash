@@ -33,9 +33,10 @@ def init():
     _p_server = PlanningServer(('127.0.0.1', 9999))
 
 
-def run_planner(planning_function):
+def run_planner(planning_function, stop_on_fail=True):
     global _p_server
     _p_server.set_planner(planning_function)
+    _p_server.set_stop_on_fail(stop_on_fail)
 
     if _p_server.run():
         print("Congrats! Case completed successfully.")

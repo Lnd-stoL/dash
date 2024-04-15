@@ -314,6 +314,7 @@ export default class Simulator {
     this.editorCameraControls.enabled = false;
 
     this.latestPlanTimestamp = null;
+    this.prevTimestamp = null;
 
     this.scene.fog = this.sceneFog;
     this.carObject.visible = true;
@@ -411,12 +412,16 @@ export default class Simulator {
     this.paused = false;
     this.scenarioPlayButton.classList.add('is-hidden');
     this.scenarioPauseButton.classList.remove('is-hidden');
+    this.showPlannerUnavailable(false);
   }
 
   pauseScenario() {
     this.paused = true;
     this.scenarioPlayButton.classList.remove('is-hidden');
     this.scenarioPauseButton.classList.add('is-hidden');
+
+    this.showPlannerUnavailable(false);
+    this.waitingForFirstPlan = false;
   }
 
   restartScenario() {
@@ -551,8 +556,10 @@ export default class Simulator {
     const message = document.getElementById("planner-unavailable-message");
     if (show) {
       message.classList.add('is-active');
+      this.autonomousModeButton.classList.add('is-loading');
     } else {
       message.classList.remove('is-active');
+      this.autonomousModeButton.classList.remove('is-loading');
     }
   }
 
@@ -582,7 +589,7 @@ export default class Simulator {
     if (!this.plannerReset && !this.paused && this.autonomousCarController && this.carControllerMode == 'autonomous') {
       const latency = this.averagePlanTime.average;
       predictedPose = this.autonomousCarController.predictPoseAfterTime(pose, latency);
-      let [predictedStation] = this.editor.lanePath.stationLatitudeFromPosition(predictedPose.pos, this.aroundAnchorIndex);
+      predictedStation = this.editor.lanePath.stationLatitudeFromPosition(predictedPose.pos, this.aroundAnchorIndex)[0];
       startTime += latency;
     }
 
@@ -606,11 +613,10 @@ export default class Simulator {
 
   receivePlannedPath(event) {
     if (event.data.error) {
-      if (event.data.error === "planner_unavailable") {
+      if (event.data.error === "planner_unavailable" && !this.paused) {
         this.showPlannerUnavailable(true);
-      } else {
-        document.getElementById('planner-error').classList.remove('is-hidden');
       }
+      //document.getElementById('planner-error').classList.remove('is-hidden')
       return;
     }
 
@@ -629,7 +635,8 @@ export default class Simulator {
     const { fromVehicleParams, vehiclePose, vehicleStation, latticeStartStation, config, dynamicObstacleGrid } = event.data;
     let { path, fromVehicleSegment } = event.data;
 
-    this.averagePlanTime.addSample((performance.now() - this.lastPlanRequestTime) / 1000);
+    const planningDuration = Math.min((this.latestPlanTimestamp - this.lastPlanRequestTime) / 1000, 0.3);
+    this.averagePlanTime.addSample(planningDuration);
     this.plannerReady = true;
 
     if (this.plannerReset) return;
@@ -752,8 +759,8 @@ export default class Simulator {
       const obstacleRectangle = {
         x: positoin_at_time.x,
         y: positoin_at_time.z,
-        width: obstacle.size.w + 0.3,  // 30 cm is collision buffer
-        height: obstacle.size.h + 0.3,
+        width: obstacle.size.w + 0.4,  // 30 cm is collision buffer
+        height: obstacle.size.h + 0.4,
         angle: obstacle.rotation.y,
       };
       if (areRectanglesColliding(carRectangle, obstacleRectangle)) {
@@ -811,17 +818,23 @@ export default class Simulator {
       return;
     }
 
-    if (this.latestPlanTimestamp != null && (performance.now() - this.latestPlanTimestamp) > 500) {
+    // plan is outdated, should pause simulation
+    const planWaitingThreshold = 0.3;  // path expected to be updated once in 300ms
+    const timeSinceLastPlanUpdate =
+      this.latestPlanTimestamp != null ? (performance.now() - this.latestPlanTimestamp) / 1000.0 : 0;  // in ms
+    if (!this.editor.enabled &&
+        (this.waitingForFirstPlan || (!this.paused && timeSinceLastPlanUpdate > planWaitingThreshold))) {
+      this.showPlannerUnavailable(true);
       this.prevTimestamp = timestamp;
-      requestAnimationFrame(this.step.bind(this));
-      return;
     }
-
     const dt = (timestamp - this.prevTimestamp) / 1000;
 
     this.editor.update();
 
-    if (!this.editor.enabled && !this.paused) {
+    // skip simulation when dt is not in valid expected range
+    if (!this.editor.enabled && !this.paused && dt > 1e-6 && dt < 0.5) {
+      this.showPlannerUnavailable(false);
+
       this.simulatedTime += dt;
 
       const prevCarPosition = this.car.position;
@@ -879,9 +892,8 @@ export default class Simulator {
           type: 'notify_case_status',
           status: {status: "failed", reason: any_collision}
         });
-      }
 
-      if (this.checkScenarioCompletion()) {
+      } else if (this.checkScenarioCompletion()) {
         this.pauseScenario();
         this.successMessage.classList.add('is-active');
 
@@ -891,12 +903,20 @@ export default class Simulator {
         });
       }
 
-      this.dashboard.update(controls, carVelocity, this.carStation, latitude, this.simulatedTime, this.averagePlanTime.average);
+      this.dashboard.update(
+        controls,
+        carVelocity,
+        this.carStation,
+        latitude,
+        this.simulatedTime,
+        this.averagePlanTime.average);
     }
 
     if (!this.editor.enabled && this.plannerReady) {
       this.startPlanner(this.car.pose, this.carStation || 0);
       this.dashboard.updatePlanTime(this.averagePlanTime.average);
+    } else if (!this.plannerReady) {
+      this.dashboard.updatePlanTime(timeSinceLastPlanUpdate);
     }
 
     this.frameCounter++;

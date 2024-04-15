@@ -24,14 +24,17 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         # Parse query data & params to find out what was passed
         parsed_path = urlparse(self.path)
-        if parsed_path.path == '/plan':
-            self.plan_request()
-        elif parsed_path.path == '/notify_case_status':
-            self.notify_case_status_request()
-        elif parsed_path.path == '/ping':
-            self.ping_request()
-        else:
-            self.send_response(404)
+        try:
+            if parsed_path.path == '/plan':
+                self.plan_request()
+            elif parsed_path.path == '/notify_case_status':
+                self.notify_case_status_request()
+            elif parsed_path.path == '/ping':
+                self.ping_request()
+            else:
+                self.send_response(404)
+        except BrokenPipeError:
+            pass
 
     def ping_request(self):
         # Send the "200 OK" response
@@ -96,6 +99,7 @@ class PlanningServer(HTTPServer):
         self.handles_planning_requests = True
         self.case_completed = False
         self.fail_reason = ''
+        self.stop_on_fail = True
 
     def finish_request(self, request, client_address):
         self.RequestHandlerClass(
@@ -106,6 +110,9 @@ class PlanningServer(HTTPServer):
 
     def set_planner(self, do_plan):
         self.do_plan = do_plan
+
+    def set_stop_on_fail(self, stop_on_fail):
+        self.stop_on_fail = stop_on_fail
 
     def on_case_status(self, status):
         status_string = status["status"]
@@ -119,6 +126,8 @@ class PlanningServer(HTTPServer):
         if status_string == 'failed':
             self.case_completed = False
             self.fail_reason = status["reason"]
+            if not self.stop_on_fail:
+                self.handles_planning_requests = True
 
     def verify_planned_trajectory(self, planned_path: PlannedPath):
         if len(planned_path.states) < 2:

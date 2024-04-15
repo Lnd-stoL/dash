@@ -38,22 +38,42 @@ function init() {
 
     pathPlanner.config = config;
 
-    let planner_result;
-    while (true) {
+    let should_retry = true;
+    while (should_retry) {
+      let planner_result;
       try {
         planner_result = pathPlanner.plan(vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles);
+        should_retry = planner_result.planner_state == "unavailable";
       } catch (error) {
-        console.log('PathPlannerWorker error');
-        console.log(error);
-        break;
+        if (error.name != "TimeoutError" && error.name != "NetworkError") {
+          console.log('Planning request error: ');
+          console.log(error);
+          self.postMessage({ error: error.toString() });
+          should_retry = false;
+          break;
+        }
       }
 
-      if (planner_result.planner_state == "unavailable") {
+      if (should_retry) {
         self.postMessage({ error: "planner_unavailable" });
       } else {
-        const { path, fromVehicleSegment, fromVehicleParams, latticeStartStation, dynamicObstacleGrid } = planner_result;
-        self.postMessage({ path, fromVehicleSegment, fromVehicleParams, vehiclePose, vehicleStation, latticeStartStation, config, dynamicObstacleGrid });
-        break;
+        const {
+          path,
+          fromVehicleSegment,
+          fromVehicleParams,
+          latticeStartStation,
+          dynamicObstacleGrid
+        } = planner_result;
+
+        self.postMessage({
+          path,
+          fromVehicleSegment,
+          fromVehicleParams,
+          vehiclePose,
+          vehicleStation,
+          latticeStartStation,
+          config,
+          dynamicObstacleGrid });
       }
     }
   };

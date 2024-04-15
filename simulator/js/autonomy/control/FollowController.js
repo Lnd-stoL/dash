@@ -78,7 +78,7 @@ export default class FollowController {
     let brake = 0;
     let steer = 0;
 
-    if (nextIndex >= pathPoses.length - 2 && progress >= 1) {
+    if (nextIndex >= pathPoses.length - 2 && progress >= 1 - 1e-6) {
       brake = 1;
     } else {
       /*
@@ -98,9 +98,9 @@ export default class FollowController {
       const dampedAccel = this.prevAccel * (1 - accelDamping) + targetAccel * accelDamping;
 
       if (dampedAccel > 0)
-        gas = Math.min(dampedAccel / Car.MAX_GAS_ACCEL, 1);
+        gas = Math.min(dampedAccel / Car.MAX_GAS_ACCEL, Car.MAX_GAS_ACCEL);
       else
-        brake = Math.min(-dampedAccel / Car.MAX_BRAKE_DECEL, 1);
+        brake = Math.min(-dampedAccel / Car.MAX_BRAKE_DECEL, Car.MAX_BRAKE_DECEL);
 
       this.prevVelocity = velocity;
       this.prevAccel = dampedAccel;
@@ -171,5 +171,7 @@ export default class FollowController {
 function projectPointOnSegment(point, start, end) {
   const distSqr = start.distanceToSquared(end);
   const progress = point.clone().sub(start).dot(end.clone().sub(start)) / distSqr;
-  return [end.clone().sub(start).multiplyScalar(progress).add(start), progress];
+
+  const clampedProgress = Math.max(0, Math.min(1, progress));
+  return [end.clone().sub(start).multiplyScalar(clampedProgress).add(start), clampedProgress];
 }
