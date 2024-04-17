@@ -65,7 +65,7 @@ export default class Dashboard {
   updatePlanTime(planTime) {
     if (!this.wheelDom) return;
 
-    this.planTimeDom.textContent = planTime !== null ? (planTime * 1000).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '—';
+    this.planTimeDom.textContent = planTime !== null ? (planTime).toLocaleString(undefined, { maximumFractionDigits: 3 }) : '—';
   }
 
   update(controls, speed, station, latitude, elapsedTime, planTime) {

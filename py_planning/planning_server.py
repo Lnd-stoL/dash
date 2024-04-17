@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from dacite import from_dict
 from shapely.geometry import Point
 
-from .data_types import _RawState, beatify_state, PlannedPath
+from .data_types import _RawState, beatify_state, PlannedPath, postprocess_planned_path
 
 
 class JSONRequestHandler(BaseHTTPRequestHandler):
@@ -61,7 +61,7 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         # Send the response
-        self.wfile.write(jsonpickle.dumps(response).encode('utf-8'))
+        self.wfile.write(jsonpickle.dumps(postprocess_planned_path(response)).encode('utf-8'))
 
     def notify_case_status_request(self):
         content_length = int(self.headers['Content-Length'])

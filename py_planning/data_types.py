@@ -93,3 +93,12 @@ def beatify_state(raw_state: _RawState) -> State:
         static_obstacles=raw_state.staticObstacles,
         lane_path=_merge_multiple_lane_paths(raw_state.lanePath)
     )
+
+# this is essential for correct json serialization
+def postprocess_planned_path(planned_path: PlannedPath) -> PlannedPath:
+    for i in range(len(planned_path.states)):
+        planned_path.states[i].acceleration = float(planned_path.states[i].acceleration)
+        planned_path.states[i].velocity = float(planned_path.states[i].velocity)
+        planned_path.states[i].pos.x = float(planned_path.states[i].pos.x)
+        planned_path.states[i].pos.y = float(planned_path.states[i].pos.y)
+    return planned_path

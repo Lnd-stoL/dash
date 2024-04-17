@@ -307,6 +307,8 @@ export default class Simulator {
 
     this.simModeBoxes.forEach(el => el.classList.add('is-hidden'));
     this.editModeBoxes.forEach(el => el.classList.remove('is-hidden'));
+
+    this.showPlannerUnavailable(false);
   }
 
   finalizeEditor(replaceCamera = true) {
