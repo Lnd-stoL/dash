@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from dacite import from_dict
 from shapely.geometry import Point
 
-from .data_types import _RawState, beatify_state, PlannedPath, postprocess_planned_path
+from .data_types import _RawState, beatify_state, PlannedPath, CaseStatus, postprocess_planned_path
 
 
 class JSONRequestHandler(BaseHTTPRequestHandler):
@@ -97,8 +97,7 @@ class PlanningServer(HTTPServer):
     def __init__(self, server_address):
         super().__init__(server_address, JSONRequestHandler)
         self.handles_planning_requests = True
-        self.case_completed = False
-        self.fail_reason = ''
+        self.case_status = CaseStatus()
         self.stop_on_fail = True
 
     def finish_request(self, request, client_address):
@@ -115,25 +114,25 @@ class PlanningServer(HTTPServer):
         self.stop_on_fail = stop_on_fail
 
     def on_case_status(self, status):
-        status_string = status["status"]
+        self.case_status = from_dict(data_class=CaseStatus, data=status)
+        status_string = self.case_status.status
         self.handles_planning_requests = False
+
         if status_string == 'reset':
-            self.fail_reason = ''
+            self.case_status = CaseStatus()
             self.handles_planning_requests = True
         if status_string == 'completed':
-            self.fail_reason  = ''
-            self.case_completed = True
+            self.case_status.completed = True
         if status_string == 'failed':
-            self.case_completed = False
-            self.fail_reason = status["reason"]
+            self.case_status.completed = False
             if not self.stop_on_fail:
                 self.handles_planning_requests = True
 
     def verify_planned_trajectory(self, planned_path: PlannedPath):
         if len(planned_path.states) < 2:
-            print("Invalid planned trajectory: too short.")
             self.handles_planning_requests = False
-            self.case_completed = False
+            self.case_status.completed = False
+            self.case_status.fail_reason = "Invalid planned trajectory: less then 2 states."
             return False
 
         MAX_VELOCITY = 30.0  # m/s
@@ -141,7 +140,8 @@ class PlanningServer(HTTPServer):
             if state.velocity > MAX_VELOCITY:
                 print("Invalid planned trajectory: too high velocity: ", state.velocity, " > ",MAX_VELOCITY)
                 self.handles_planning_requests = False
-                self.case_completed = False
+                self.case_status.completed = False
+                self.case_status.fail_reason = "Invalid planned trajectory."
                 return False
 
         return True
@@ -150,4 +150,4 @@ class PlanningServer(HTTPServer):
         self.handles_planning_requests = True
         while self.handles_planning_requests:
             self.handle_request()
-        return self.case_completed
+        return self.case_status

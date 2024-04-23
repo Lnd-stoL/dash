@@ -95,6 +95,7 @@ export default class Simulator {
     this.simulatedTime = 0;
     this.lastPlanRequestTime = null;
     this.latestPlanTimestamp = null;
+    this.plannerCallsCount = 0;
     this.averagePlanTime = new MovingAverage(20);
 
     window.addEventListener('resize', e => {
@@ -597,6 +598,9 @@ export default class Simulator {
 
     const reset = this.plannerReset;
     this.plannerReset = false;
+    if (reset) {
+      this.plannerCallsCount = 1;
+    }
 
     this.lastPlanParams =  {
       type: 'plan',
@@ -640,6 +644,7 @@ export default class Simulator {
     const planningDuration = Math.min((this.latestPlanTimestamp - this.lastPlanRequestTime) / 1000, 0.3);
     this.averagePlanTime.addSample(planningDuration);
     this.plannerReady = true;
+    this.plannerCallsCount += 1;
 
     if (this.plannerReset) return;
 
@@ -892,7 +897,12 @@ export default class Simulator {
 
         this.pathPlannerWorker.postMessage({
           type: 'notify_case_status',
-          status: {status: "failed", reason: any_collision}
+          status: {
+            status: "failed",
+            reason: any_collision,
+            running_time: this.simulatedTime,
+            planning_ticks: this.plannerCallsCount,
+          }
         });
 
       } else if (this.checkScenarioCompletion()) {
@@ -901,7 +911,10 @@ export default class Simulator {
 
         this.pathPlannerWorker.postMessage({
           type: 'notify_case_status',
-          status: {status: "completed"}
+          status: {
+            running_time: this.simulatedTime,
+            planning_ticks: this.plannerCallsCount,
+          }
         });
       }
 

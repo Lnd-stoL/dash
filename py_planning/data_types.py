@@ -76,6 +76,14 @@ class PlannedState:
 class PlannedPath:
     states: List[PlannedState]
 
+@dataclass
+class CaseStatus:
+    status: Optional[str] = field(default="not_started")
+    completed: Optional[bool] = field(default=False)
+    fail_reason: Optional[str] = field(default="")
+    running_time: Optional[float] = field(default=0)
+    planning_ticks: Optional[int] = field(default=0)
+
 
 def _merge_multiple_lane_paths(multiple_lane_paths: MultipleLanePath) -> LanePath:
     return LanePath(

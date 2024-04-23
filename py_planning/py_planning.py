@@ -1,5 +1,6 @@
 from threading import Thread
 from .planning_server import PlanningServer
+import pprint
 
 
 def _run_visualization_server():
@@ -42,3 +43,6 @@ def run_planner(planning_function, stop_on_fail=True):
         print("Congrats! Case completed successfully.")
     else:
         print("Case failed: " + _p_server.fail_reason)
+
+    print("running time: " + str(_p_server.case_status.running_time) + "s")
+    print("planning ticks: "  + str(_p_server.case_status.planning_ticks))
