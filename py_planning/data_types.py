@@ -54,6 +54,7 @@ class _RawState:
     startTime: float
     dynamicObstacles: List[DynamicObstacle]
     staticObstacles: List[StaticObstacle]
+    speedLimit: float
 
 @dataclass
 class State:
@@ -63,6 +64,7 @@ class State:
     start_time: float
     dynamic_obstacles: List[DynamicObstacle]
     static_obstacles: List[StaticObstacle]
+    speed_limit: float
 
 @dataclass
 class PlannedState:
@@ -99,7 +101,8 @@ def beatify_state(raw_state: _RawState) -> State:
         vehicle_station=raw_state.staticObstacles,
         dynamic_obstacles=raw_state.dynamicObstacles,
         static_obstacles=raw_state.staticObstacles,
-        lane_path=_merge_multiple_lane_paths(raw_state.lanePath)
+        lane_path=_merge_multiple_lane_paths(raw_state.lanePath),
+        speed_limit=raw_state.speedLimit,
     )
 
 # this is essential for correct json serialization

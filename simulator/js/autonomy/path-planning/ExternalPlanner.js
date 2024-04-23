@@ -2,7 +2,7 @@
 export default class ExternalPathPlanner {
   _PLANNING_SERVER_URL = 'http://127.0.0.1:9999/'
 
-  plan(vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles) {
+  plan(vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles, speedLimit) {
     const state = {
       vehiclePose: vehiclePose,
       vehicleStation: vehicleStation,
@@ -10,6 +10,7 @@ export default class ExternalPathPlanner {
       startTime: startTime,
       staticObstacles: staticObstacles,
       dynamicObstacles: dynamicObstacles,
+      speedLimit: speedLimit,
     };
 
     var jsonToSend = JSON.stringify(state);

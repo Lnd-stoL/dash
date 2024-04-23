@@ -42,7 +42,7 @@ function init() {
     while (should_retry) {
       let planner_result;
       try {
-        planner_result = pathPlanner.plan(vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles);
+        planner_result = pathPlanner.plan(vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles, config.speedLimit);
         should_retry = planner_result.planner_state == "unavailable";
       } catch (error) {
         if (error.name != "TimeoutError" && error.name != "NetworkError") {
