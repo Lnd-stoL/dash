@@ -8,6 +8,11 @@ class Position:
     y: float
 
 @dataclass
+class PositionSL:
+    s: float
+    l: float
+
+@dataclass
 class Size:
     w: float
     h: float
@@ -39,10 +44,18 @@ class StaticObstacle:
     h: float        # высота препятствия
 
 @dataclass
+class _RawDynamicObstacle:
+    type: str
+    start_pos: Position
+    velocity: Position
+    size: Size
+    parallel: bool
+
+@dataclass
 class DynamicObstacle:
     type: str
-    startPos: Position
-    velocity: Position
+    start_pos: PositionSL
+    velocity: PositionSL
     size: Size
     parallel: bool
 
@@ -52,7 +65,7 @@ class _RawState:
     vehicleStation: float
     lanePath: MultipleLanePath
     startTime: float
-    dynamicObstacles: List[DynamicObstacle]
+    dynamicObstacles: List[_RawDynamicObstacle]
     staticObstacles: List[StaticObstacle]
     speedLimit: float
 
@@ -95,11 +108,21 @@ def _merge_multiple_lane_paths(multiple_lane_paths: MultipleLanePath) -> LanePat
     )
 
 def beatify_state(raw_state: _RawState) -> State:
+    dynamic_obstacles = [
+        DynamicObstacle(
+            type=d.type,
+            start_pos=PositionSL(s=d.startPos.x, l=d.startPos.y),
+            velocity=PositionSL(s=d.velocity.x, l=d.velocity.y),
+            size=d.size,
+            parallel=d.parallel
+        )
+        for d in raw_state.dynamicObstacles
+    ]
     return State(
         start_time=raw_state.startTime,
         vehicle_pose=raw_state.vehiclePose,
         vehicle_station=raw_state.staticObstacles,
-        dynamic_obstacles=raw_state.dynamicObstacles,
+        dynamic_obstacles=dynamic_obstacles,
         static_obstacles=raw_state.staticObstacles,
         lane_path=_merge_multiple_lane_paths(raw_state.lanePath),
         speed_limit=raw_state.speedLimit,
