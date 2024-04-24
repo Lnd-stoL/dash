@@ -118,7 +118,9 @@ export default class Simulator {
     document.getElementById('simulator-load').addEventListener('click', this.loadScenario.bind(this));
 
     this.scenarioPlayButton = document.getElementById('scenario-play');
-    this.scenarioPlayButton.addEventListener('click', this.playScenario.bind(this));
+    for (const btn of document.querySelectorAll('[id=scenario-play]')) {
+      btn.addEventListener('click', this.playScenario.bind(this));
+    }
     this.scenarioPauseButton = document.getElementById('scenario-pause');
     this.scenarioPauseButton.addEventListener('click', this.pauseScenario.bind(this));
     for (const btn of document.querySelectorAll('[id=scenario-restart]')) {
@@ -167,7 +169,24 @@ export default class Simulator {
 
     requestAnimationFrame(this.step.bind(this));
 
-    this.editor.scenarioManager._loadScenario(EXAMPLES[2]);
+    const urlParams = new URLSearchParams(window.location.search);
+    const scenarioId = urlParams.get('scenario');
+    if (scenarioId != undefined && scenarioId != null) {
+      for (const scenario of EXAMPLES) {
+        if (scenario.id == scenarioId) {
+          console.log("Loading scenario " + scenario.name);
+          this.editor.scenarioManager._loadScenario(scenario);
+          const timeLimit = scenario.time_limit;
+          if (timeLimit !== undefined) {
+            this.scenarioTimeLimit = timeLimit;
+          }
+
+          document.getElementById("pause-message").classList.add('is-active');
+          break;
+        }
+      }
+    }
+
     this.finalizeEditor();
   }
 
@@ -415,7 +434,9 @@ export default class Simulator {
     this.paused = false;
     this.scenarioPlayButton.classList.add('is-hidden');
     this.scenarioPauseButton.classList.remove('is-hidden');
+
     this.showPlannerUnavailable(false);
+    document.getElementById("pause-message").classList.remove('is-active');
   }
 
   pauseScenario() {
@@ -445,6 +466,7 @@ export default class Simulator {
   loadScenario() {
     if (this.editor.enabled) return;
 
+    this.scenarioTimeLimit = undefined;
     this.editor.scenarioManager.showModal(this.finalizeEditor.bind(this));
   }
 
@@ -557,7 +579,7 @@ export default class Simulator {
 
   showPlannerUnavailable(show) {
     const message = document.getElementById("planner-unavailable-message");
-    if (show) {
+    if (show && !this.paused) {
       message.classList.add('is-active');
       this.autonomousModeButton.classList.add('is-loading');
     } else {
@@ -818,6 +840,22 @@ export default class Simulator {
     return this.carStation >= this.editor.lanePath.arcLength - 5.0;
   }
 
+  reportScenarioFail(failReason) {
+    this.pauseScenario();
+    this.collisionMessage.classList.add('is-active');
+    document.getElementById('collision-message-text').innerText = "Case failed: " + failReason;
+
+    this.pathPlannerWorker.postMessage({
+      type: 'notify_case_status',
+      status: {
+        status: "failed",
+        fail_reason: failReason,
+        running_time: this.simulatedTime,
+        planning_ticks: this.plannerCallsCount,
+      }
+    });
+  }
+
   step(timestamp) {
     if (this.prevTimestamp == null) {
       this.prevTimestamp = timestamp;
@@ -891,20 +929,9 @@ export default class Simulator {
 
       const any_collision = this.hasAnyCollisions();
       if (any_collision != null) {
-        this.pauseScenario();
-        this.collisionMessage.classList.add('is-active');
-        document.getElementById('collision-message-text').innerText = "Case failed: " + any_collision;
-
-        this.pathPlannerWorker.postMessage({
-          type: 'notify_case_status',
-          status: {
-            status: "failed",
-            reason: any_collision,
-            running_time: this.simulatedTime,
-            planning_ticks: this.plannerCallsCount,
-          }
-        });
-
+        this.reportScenarioFail(any_collision);
+      } else if (this.scenarioTimeLimit !== undefined && this.simulatedTime > this.scenarioTimeLimit) {
+        this.reportScenarioFail("exceeded time limit of " + this.scenarioTimeLimit + "s");
       } else if (this.checkScenarioCompletion()) {
         this.pauseScenario();
         this.successMessage.classList.add('is-active');
@@ -912,6 +939,7 @@ export default class Simulator {
         this.pathPlannerWorker.postMessage({
           type: 'notify_case_status',
           status: {
+            status: "completed",
             running_time: this.simulatedTime,
             planning_ticks: this.plannerCallsCount,
           }
@@ -928,9 +956,11 @@ export default class Simulator {
     }
 
     if (!this.editor.enabled && this.plannerReady) {
-      this.startPlanner(this.car.pose, this.carStation || 0);
+      if (!this.paused) {
+        this.startPlanner(this.car.pose, this.carStation || 0);
+      }
       this.dashboard.updatePlanTime(this.averagePlanTime.average);
-    } else if (!this.plannerReady) {
+    } else if (!this.plannerReady && !this.paused) {
       this.dashboard.updatePlanTime(timeSinceLastPlanUpdate);
     }
 

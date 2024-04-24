@@ -18,7 +18,7 @@
                 <div class="modal-content is-centered" style="text-align: center;">
                     <span id="collision-message-text" class="has-text-grey-lighter" style="font-size: 26px;">OOPS, You crashed</span>
                     <div style="margin-top: 70px;">
-                        <span id="scenario-restart" class="button is-dark is-outlined is-inverted" title="Restart Scenario">
+                        <span id="scenario-restart" class="button is-dark is-outlined is-inverted is-hidden" title="Restart Scenario">
                             <span class="icon is-medium">
                                 <i class="fas fa-lg fa-undo-alt"></i>
                             </span>
@@ -32,11 +32,25 @@
                 <div class="modal-content is-centered" style="text-align: center;">
                     <span class="has-text-grey-lighter" style="font-size: 26px;">Case completed!</span>
                     <div style="margin-top: 70px;">
-                        <span id="scenario-restart" class="button is-dark is-outlined is-inverted" title="Restart Scenario">
+                        <span id="scenario-restart" class="button is-dark is-outlined is-inverted is-hidden" title="Restart Scenario">
                             <span class="icon is-medium">
                                 <i class="fas fa-lg fa-undo-alt"></i>
                             </span>
                             <span> Restart scenario</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div id="pause-message" class="modal is-centered" style="max-height: 50%; transform: translateY(50%); ">
+                <div class="modal-background" style="background: rgba(48, 84, 139, 0.733);""></div>
+                <div class="modal-content is-centered" style="text-align: center;">
+                    <span class="has-text-grey-lighter" style="font-size: 26px;">Simulation paused</span>
+                    <div style="margin-top: 70px;">
+                        <span id="scenario-play" class="button is-dark is-outlined is-inverted" title="Start">
+                            <span class="icon is-medium">
+                                <i class="fas fa-lg fa-play"></i>
+                            </span>
+                            <span> Play</span>
                         </span>
                     </div>
                 </div>

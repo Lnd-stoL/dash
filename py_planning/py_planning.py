@@ -39,10 +39,11 @@ def run_planner(planning_function, stop_on_fail=True):
     _p_server.set_planner(planning_function)
     _p_server.set_stop_on_fail(stop_on_fail)
 
-    if _p_server.run():
+    case_status = _p_server.run()
+    if case_status.completed:
         print("Congrats! Case completed successfully.")
     else:
-        print("Case failed: " + _p_server.fail_reason)
+        print("Case failed: " + case_status.fail_reason)
 
-    print("running time: " + str(_p_server.case_status.running_time) + "s")
-    print("planning ticks: "  + str(_p_server.case_status.planning_ticks))
+    print("running time: " + str(case_status.running_time) + "s")
+    print("planning ticks: "  + str(case_status.planning_ticks))

@@ -1,6 +1,11 @@
+import { v4 as uuidv4 } from 'uuid';
 
 export default class ExternalPathPlanner {
   _PLANNING_SERVER_URL = 'http://127.0.0.1:9999/'
+
+  constructor() {
+    this.uuid = uuidv4();
+  }
 
   plan(vehiclePose, vehicleStation, lanePath, startTime, staticObstacles, dynamicObstacles, speedLimit) {
     const state = {
@@ -11,14 +16,15 @@ export default class ExternalPathPlanner {
       staticObstacles: staticObstacles,
       dynamicObstacles: dynamicObstacles,
       speedLimit: speedLimit,
+      plannerId: this.uuid,
     };
 
     var jsonToSend = JSON.stringify(state);
     const response = this._send_request(jsonToSend, 'plan');
-    const path = JSON.parse(response)['states'];
+    const path = JSON.parse(response.responseText)['states'];
 
     return {
-      planner_state: "ok",
+      planner_state: (response.status === 200 ? "ok" : "unavailable"),
       path: path,
       fromVehicleSegment: [],
       fromVehicleParams: { type:'null' },
@@ -45,10 +51,6 @@ export default class ExternalPathPlanner {
     xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.send(jsonToSend);
 
-    if (xhr.status === 200) {
-      return xhr.responseText;
-    } else {
-      console.error('There was an error with the request');
-    }
+    return xhr;
   }
 }

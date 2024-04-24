@@ -46,7 +46,7 @@ class StaticObstacle:
 @dataclass
 class _RawDynamicObstacle:
     type: str
-    start_pos: Position
+    startPos: Position
     velocity: Position
     size: Size
     parallel: bool
@@ -68,6 +68,7 @@ class _RawState:
     dynamicObstacles: List[_RawDynamicObstacle]
     staticObstacles: List[StaticObstacle]
     speedLimit: float
+    plannerId: str
 
 @dataclass
 class State:

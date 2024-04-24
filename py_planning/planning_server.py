@@ -10,11 +10,11 @@ from shapely.geometry import Point
 from .data_types import _RawState, beatify_state, PlannedPath, CaseStatus, postprocess_planned_path
 
 
-class JSONRequestHandler(BaseHTTPRequestHandler):
-    def __init__(self, do_plan, on_case_status, verify_planned_trajectory, *args, **kwargs):
+class PlannerJSONRequestHandler(BaseHTTPRequestHandler):
+    def __init__(self, do_plan, on_case_status, on_planned, *args, **kwargs):
         self.do_plan = do_plan
         self.on_case_status = on_case_status
-        self.verify_planned_trajectory = verify_planned_trajectory
+        self.on_planned = on_planned
         super().__init__(*args, **kwargs)
 
     def do_OPTIONS(self):
@@ -41,7 +41,7 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.end_headers()
-        self.wfile.write('{"status": "ok"}')
+        self.wfile.write(b'{"status": "ok"}')
 
     def plan_request(self):
         content_length = int(self.headers['Content-Length'])
@@ -49,7 +49,7 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
         try:
             state = from_dict(data_class=_RawState, data=json.loads(post_data))
             response = self.do_plan(beatify_state(state))
-            if not self.verify_planned_trajectory(response):
+            if not self.on_planned(response):
                 response = {'status': 'error', 'message': 'trajectory verification failed'}
         except Exception:
             print('Exception while planning: ', traceback.format_exc())
@@ -66,7 +66,7 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
     def notify_case_status_request(self):
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
-        response = ""
+        response = "{}"
         status = {}
         try:
             status = json.loads(post_data)
@@ -95,7 +95,7 @@ class JSONRequestHandler(BaseHTTPRequestHandler):
 
 class PlanningServer(HTTPServer):
     def __init__(self, server_address):
-        super().__init__(server_address, JSONRequestHandler)
+        super().__init__(server_address, PlannerJSONRequestHandler)
         self.handles_planning_requests = True
         self.case_status = CaseStatus()
         self.stop_on_fail = True
@@ -104,7 +104,7 @@ class PlanningServer(HTTPServer):
         self.RequestHandlerClass(
             self.do_plan,
             self.on_case_status,
-            self.verify_planned_trajectory,
+            self.on_planned,
             request, client_address, self)
 
     def set_planner(self, do_plan):
@@ -117,6 +117,7 @@ class PlanningServer(HTTPServer):
         self.case_status = from_dict(data_class=CaseStatus, data=status)
         status_string = self.case_status.status
         self.handles_planning_requests = False
+        self.active_planner_uuid = None
 
         if status_string == 'reset':
             self.case_status = CaseStatus()
@@ -127,6 +128,9 @@ class PlanningServer(HTTPServer):
             self.case_status.completed = False
             if not self.stop_on_fail:
                 self.handles_planning_requests = True
+
+    def on_planned(self, planned_path: PlannedPath):
+        return self.verify_planned_trajectory(planned_path)
 
     def verify_planned_trajectory(self, planned_path: PlannedPath):
         if len(planned_path.states) < 2:
@@ -147,6 +151,7 @@ class PlanningServer(HTTPServer):
         return True
 
     def run(self):
+        print("Case started")
         self.handles_planning_requests = True
         while self.handles_planning_requests:
             self.handle_request()
