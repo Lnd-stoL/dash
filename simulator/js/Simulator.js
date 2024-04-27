@@ -627,7 +627,7 @@ export default class Simulator {
     this.lastPlanParams =  {
       type: 'plan',
       config: Object.assign({}, this.pathPlannerConfigEditor.config, { speedLimit: this.editor.speedLimit, lanePreference: this.editor.lanePreference }),
-      vehiclePose: predictedPose,
+      vehiclePose: pose,
       vehicleStation: predictedStation,
       lanePath: this.editor.lanePath,
       startTime: startTime,
