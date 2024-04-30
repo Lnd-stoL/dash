@@ -611,12 +611,14 @@ export default class Simulator {
     let predictedStation = station;
     let startTime = this.simulatedTime;
 
+    /*
     if (!this.plannerReset && !this.paused && this.autonomousCarController && this.carControllerMode == 'autonomous') {
       const latency = this.averagePlanTime.average;
       predictedPose = this.autonomousCarController.predictPoseAfterTime(pose, latency);
       predictedStation = this.editor.lanePath.stationLatitudeFromPosition(predictedPose.pos, this.aroundAnchorIndex)[0];
       startTime += latency;
     }
+    */
 
     const reset = this.plannerReset;
     this.plannerReset = false;

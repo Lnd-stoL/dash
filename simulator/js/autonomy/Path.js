@@ -25,7 +25,7 @@ export default class Path {
         pose.rot = rot;
       }
 
-      if (pose.curv === undefined || pose.curv == null) {
+      if (pose.curv === undefined || pose.curv === null) {
         if (i > 0 && i < poses.length - 1) {
           const prev = poses[i - 1].pos;
           const cur = poses[i].pos;

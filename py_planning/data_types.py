@@ -83,7 +83,6 @@ class State:
 @dataclass
 class PlannedState:
     pos: Position
-    velocity: float
     acceleration: float = 0
     rot: Optional[float] = field(default=None)
     curv: Optional[float] = field(default=None)
