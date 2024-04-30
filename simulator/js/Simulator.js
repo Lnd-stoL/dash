@@ -27,6 +27,8 @@ const WELCOME_MODAL_KEY = 'dash_WelcomeModal';
 
 import EXAMPLES from "./simulator/examples.js";
 
+const PLANNING_RATE = 2;  // run planner twice a second
+
 export default class Simulator {
   constructor(domElement) {
     this.pathPlannerWorker = new Worker(URL.createObjectURL(new Blob([`(${dash_initPathPlannerWorker.toString()})()`], { type: 'text/javascript' })));
@@ -641,18 +643,8 @@ export default class Simulator {
     this.pathPlannerWorker.postMessage(this.lastPlanParams);
   }
 
-  receivePlannedPath(event) {
-    if (event.data.error) {
-      if (event.data.error === "planner_unavailable" && !this.paused) {
-        this.showPlannerUnavailable(true);
-      }
-      //document.getElementById('planner-error').classList.remove('is-hidden')
-      return;
-    }
-
-    this.showPlannerUnavailable(false);
-
-    this.latestPlanTimestamp = performance.now();
+  handlePlannedPath(event_data) {
+    this.plannerReady = true;
 
     if (this.waitingForFirstPlan && !this.plannerReset) {
       this.waitingForFirstPlan = false;
@@ -662,13 +654,8 @@ export default class Simulator {
 
     if (this.editor.enabled) return;
 
-    const { fromVehicleParams, vehiclePose, vehicleStation, latticeStartStation, config, dynamicObstacleGrid } = event.data;
-    let { path, fromVehicleSegment } = event.data;
-
-    const planningDuration = Math.min((this.latestPlanTimestamp - this.lastPlanRequestTime) / 1000, 0.3);
-    this.averagePlanTime.addSample(planningDuration);
-    this.plannerReady = true;
-    this.plannerCallsCount += 1;
+    const { fromVehicleParams, vehiclePose, vehicleStation, latticeStartStation, config, dynamicObstacleGrid } = event_data;
+    let { path, fromVehicleSegment } = event_data;
 
     if (this.plannerReset) return;
 
@@ -744,7 +731,7 @@ export default class Simulator {
     }
 
     path.forEach(p => Object.setPrototypeOf(p.pos, THREE.Vector2.prototype));
-    const followPath = new Path(path);
+    const followPath = new Path(path, this.car.pose.rot);
 
     if (this.autonomousCarController)
       this.autonomousCarController.replacePath(followPath);
@@ -767,6 +754,33 @@ export default class Simulator {
     );
     pathObject.renderOrder = 1;
     this.plannedPathGroup.add(pathObject);
+  }
+
+  receivePlannedPath(event) {
+    if (event.data.error) {
+      if (event.data.error === "planner_unavailable" && !this.paused) {
+        this.showPlannerUnavailable(true);
+      }
+      //document.getElementById('planner-error').classList.remove('is-hidden')
+      return;
+    }
+
+    this.showPlannerUnavailable(false);
+
+    this.latestPlanTimestamp = performance.now();
+    const planningDuration = (this.latestPlanTimestamp - this.lastPlanRequestTime) / 1000;
+    this.averagePlanTime.addSample(planningDuration);
+    this.plannerCallsCount += 1;
+
+    const desiredPlanningDuration = 1.0 / PLANNING_RATE;
+    if (planningDuration < desiredPlanningDuration && !this.waitingForFirstPlan) {
+      const simulatorInstance = this;
+      setTimeout(function() {
+        simulatorInstance.handlePlannedPath(event.data);
+      }, (desiredPlanningDuration - planningDuration) * 1000 - (1000 * 3 / 60));
+    } else {
+      this.handlePlannedPath(event.data);
+    }
   }
 
   _hasCarStaticObstacleCollision(carRectangle) {
@@ -838,6 +852,15 @@ export default class Simulator {
     return null;
   }
 
+  isOutOfTrajectory() {
+    const trajectoryPolyline = this.autonomousCarController.path.poses.map(p => p.pos);
+    const distanceToTrajectory = distanceFromPolylineToPoint(this.car.pose.pos, trajectoryPolyline);
+    if (distanceToTrajectory > 1.0) {
+      return distanceToTrajectory;
+    }
+    return null;
+  }
+
   checkScenarioCompletion() {
     return this.carStation >= this.editor.lanePath.arcLength - 5.0;
   }
@@ -866,7 +889,7 @@ export default class Simulator {
     }
 
     // plan is outdated, should pause simulation
-    const planWaitingThreshold = 0.3;  // path expected to be updated once in 300ms
+    const planWaitingThreshold = 1.0 / PLANNING_RATE;
     const timeSinceLastPlanUpdate =
       this.latestPlanTimestamp != null ? (performance.now() - this.latestPlanTimestamp) / 1000.0 : 0;  // in ms
     if (!this.editor.enabled &&
@@ -930,10 +953,13 @@ export default class Simulator {
       }
 
       const any_collision = this.hasAnyCollisions();
+      const out_of_trajectory = this.isOutOfTrajectory();
       if (any_collision != null) {
         this.reportScenarioFail(any_collision);
       } else if (this.scenarioTimeLimit !== undefined && this.simulatedTime > this.scenarioTimeLimit) {
         this.reportScenarioFail("exceeded time limit of " + this.scenarioTimeLimit + "s");
+      } else if (out_of_trajectory != null) {
+        this.reportScenarioFail("trajectory is too far away from the car pose: " + out_of_trajectory + "m");
       } else if (this.checkScenarioCompletion()) {
         this.pauseScenario();
         this.successMessage.classList.add('is-active');
@@ -962,8 +988,6 @@ export default class Simulator {
         this.startPlanner(this.car.pose, this.carStation || 0);
       }
       this.dashboard.updatePlanTime(this.averagePlanTime.average);
-    } else if (!this.plannerReady && !this.paused) {
-      this.dashboard.updatePlanTime(timeSinceLastPlanUpdate);
     }
 
     this.frameCounter++;

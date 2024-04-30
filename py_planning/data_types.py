@@ -53,7 +53,6 @@ class _RawDynamicObstacle:
 
 @dataclass
 class DynamicObstacle:
-    type: str
     start_pos: PositionSL
     velocity: PositionSL
     size: Size
@@ -75,7 +74,7 @@ class State:
     vehicle_pose: VehiclePose  # current AV position and velocity
     vehicle_station: float     # current 'station' that is the distance travelled along the centerline
     lane_path: MultipleLanePath
-    start_time: float
+    simulation_time: float
     dynamic_obstacles: List[DynamicObstacle]
     static_obstacles: List[StaticObstacle]
     speed_limit: float
@@ -110,7 +109,6 @@ def _merge_multiple_lane_paths(multiple_lane_paths: MultipleLanePath) -> LanePat
 def beatify_state(raw_state: _RawState) -> State:
     dynamic_obstacles = [
         DynamicObstacle(
-            type=d.type,
             start_pos=PositionSL(s=d.startPos.x, l=d.startPos.y),
             velocity=PositionSL(s=d.velocity.x, l=d.velocity.y),
             size=d.size,
@@ -119,7 +117,7 @@ def beatify_state(raw_state: _RawState) -> State:
         for d in raw_state.dynamicObstacles
     ]
     return State(
-        start_time=raw_state.startTime,
+        simulation_time=raw_state.startTime,
         vehicle_pose=raw_state.vehiclePose,
         vehicle_station=raw_state.staticObstacles,
         dynamic_obstacles=dynamic_obstacles,
@@ -132,7 +130,6 @@ def beatify_state(raw_state: _RawState) -> State:
 def postprocess_planned_path(planned_path: PlannedPath) -> PlannedPath:
     for i in range(len(planned_path.states)):
         planned_path.states[i].acceleration = float(planned_path.states[i].acceleration)
-        planned_path.states[i].velocity = float(planned_path.states[i].velocity)
         planned_path.states[i].pos.x = float(planned_path.states[i].pos.x)
         planned_path.states[i].pos.y = float(planned_path.states[i].pos.y)
     return planned_path

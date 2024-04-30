@@ -3,7 +3,7 @@ import Car from "../physics/Car.js"
 // input pose: { pos: Vector2 [, rot: radians] }
 // pose: { pos: Vector2, frontPos: Vector2, fakePos: Vector2, rot: radians }
 export default class Path {
-  constructor(poses, startRotation = 0, goalRotation = 0) {
+  constructor(poses, startRotation = 0, goalRotation = 0, startCurvature = 0) {
     this.poses = poses;
 
     for (let i = 0; i < poses.length; i++) {
@@ -26,6 +26,10 @@ export default class Path {
       }
 
       if (pose.curv === undefined || pose.curv === null) {
+        if (i == 0) {
+          poses[0].curv = startCurvature;
+        }
+
         if (i > 0 && i < poses.length - 1) {
           const prev = poses[i - 1].pos;
           const cur = poses[i].pos;

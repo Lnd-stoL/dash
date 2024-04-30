@@ -51,6 +51,7 @@ class PlannerJSONRequestHandler(BaseHTTPRequestHandler):
         try:
             state = from_dict(data_class=_RawState, data=json.loads(post_data))
             response = self.do_plan(beatify_state(state))
+            assert(isinstance(response, PlannedPath))
             if not self.on_planned(response):
                 response = {'status': 'error', 'message': 'trajectory verification failed after planning'}
         except Exception as exc:
@@ -64,7 +65,7 @@ class PlannerJSONRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         # Send the response
-        response = postprocess_planned_path(response) if response is PlannedPath else response
+        response = postprocess_planned_path(response) if isinstance(response, PlannedPath) else response
         self.wfile.write(jsonpickle.dumps(response).encode('utf-8'))
 
     def notify_case_status_request(self):
@@ -148,13 +149,13 @@ class PlanningServer(HTTPServer):
         if len(planned_path.states) < 2:
             self.handles_planning_requests = False
             self.case_status.completed = False
-            self.case_status.fail_reason = "Invalid planned trajectory: less then 2 states."
+            self.case_status.fail_reason = "Invalid planned trajectory: should be more then 1 states."
             return False
 
-        MAX_ACC = 10.0  # m/s^2
+        MAX_ACC = 9.0  # m/s^2
         for state in planned_path.states:
             if abs(state.acceleration) > MAX_ACC:
-                print("Invalid planned trajectory: too high velocity: ", state.velocity, " > ",MAX_VELOCITY)
+                print("Invalid planned trajectory: too high acceleration: ", state.acceleration, " > ", MAX_ACC)
                 self.handles_planning_requests = False
                 self.case_status.completed = False
                 self.case_status.fail_reason = "Invalid planned trajectory."

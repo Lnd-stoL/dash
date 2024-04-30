@@ -149,3 +149,49 @@ function intersectSegment(p0, p1, p2, p3) {
 
   return false; // No collision
 }
+
+function distanceFromPolylineToPoint(point, polyline) {
+  const x = point.x;
+  const y = point.y;
+
+  // Calculate the square of the distance between two points
+  function sqr(x) {
+      return x * x;
+  }
+
+  // Calculate the Euclidean distance between two points
+  function dist2(v, w) {
+      return sqr(v.x - w.x) + sqr(v.y - w.y);
+  }
+
+  // Calculate the distance from point p to the segment between v and w
+  function distanceToSegmentSquared(p, v, w) {
+      var l2 = dist2(v, w);
+      if (l2 === 0) return dist2(p, v); // v == w case
+      var t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+      t = Math.max(0, Math.min(1, t));
+      return dist2(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) });
+  }
+
+  // Calculate the distance from point p to line segment v to w
+  function distanceToSegment(p, v, w) {
+      return Math.sqrt(distanceToSegmentSquared(p, v, w));
+  }
+
+  // This represents the point to which we are finding the distance
+  var p = { x: x, y: y };
+  var minDist = Infinity;
+
+  // Loop through all segments of the polyline
+  for (var i = 0; i < polyline.length - 1; i++) {
+      var v = polyline[i];
+      var w = polyline[i + 1];
+      var dist = distanceToSegment(p, v, w);
+      if (dist < minDist) {
+          minDist = dist;
+      }
+  }
+
+  return minDist;
+}
+

@@ -47,3 +47,6 @@ def run_planner(planning_function, stop_on_fail=True):
 
     print("running time: " + str(case_status.running_time) + "s")
     print("planning ticks: "  + str(case_status.planning_ticks))
+
+    if not case_status.completed:
+        raise Exception("Case failed")

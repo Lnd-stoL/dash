@@ -20,7 +20,11 @@ function init() {
 
   self.onmessage = function(event) {
     if (event.data.type === 'notify_case_status') {
-      pathPlanner.notify_scenario_status(event.data.status);
+      try {
+        pathPlanner.notify_scenario_status(event.data.status);
+      } catch (error) {
+        console.log("Failed notify case compliteon: " + error);
+      }
       return;
     }
     if (event.data.type != 'plan') {
