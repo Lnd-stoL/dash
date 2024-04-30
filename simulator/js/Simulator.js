@@ -888,8 +888,8 @@ export default class Simulator {
       const prevCarRotation = this.car.rotation;
 
       const manualControls = this.manualCarController.control(this.car.pose, this.car.wheelAngle, this.car.velocity, dt);
-      if (manualControls.steer != 0 || manualControls.brake != 0 || manualControls.gas != 0)
-        this.enableManualMode();
+      //if (manualControls.steer != 0 || manualControls.brake != 0 || manualControls.gas != 0)
+      //  this.enableManualMode();
 
       let autonomousControls = { steer: 0, brake: 0, gas: 0};
       if (this.autonomousCarController)
