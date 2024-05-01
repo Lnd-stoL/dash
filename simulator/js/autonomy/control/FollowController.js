@@ -170,6 +170,9 @@ export default class FollowController {
 // Returns [pointOnSegment, progressAlongSegment {0 - 1}]
 function projectPointOnSegment(point, start, end) {
   const distSqr = start.distanceToSquared(end);
+  if (distSqr < 1e-9) {
+    return [start, 0];
+  }
   const progress = point.clone().sub(start).dot(end.clone().sub(start)) / distSqr;
 
   const clampedProgress = Math.max(0, Math.min(1, progress));

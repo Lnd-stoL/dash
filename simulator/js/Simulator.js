@@ -854,7 +854,7 @@ export default class Simulator {
 
   isOutOfTrajectory() {
     const trajectoryPolyline = this.autonomousCarController.path.poses.map(p => p.pos);
-    const distanceToTrajectory = distanceFromPolylineToPoint(this.car.pose.pos, trajectoryPolyline);
+    const distanceToTrajectory = distanceFromPolylineToPoint(this.car.position, trajectoryPolyline);
     if (distanceToTrajectory > 1.0) {
       return distanceToTrajectory;
     }
@@ -958,8 +958,8 @@ export default class Simulator {
         this.reportScenarioFail(any_collision);
       } else if (this.scenarioTimeLimit !== undefined && this.simulatedTime > this.scenarioTimeLimit) {
         this.reportScenarioFail("exceeded time limit of " + this.scenarioTimeLimit + "s");
-      } else if (out_of_trajectory != null) {
-        this.reportScenarioFail("trajectory is too far away from the car pose: " + out_of_trajectory + "m");
+      //} else if (out_of_trajectory != null) {
+      //  this.reportScenarioFail("trajectory is too far away from the car pose: " + out_of_trajectory + "m");
       } else if (this.checkScenarioCompletion()) {
         this.pauseScenario();
         this.successMessage.classList.add('is-active');

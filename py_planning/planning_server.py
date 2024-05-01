@@ -66,7 +66,7 @@ class PlannerJSONRequestHandler(BaseHTTPRequestHandler):
 
         # Send the response
         response = postprocess_planned_path(response) if isinstance(response, PlannedPath) else response
-        self.wfile.write(jsonpickle.dumps(response).encode('utf-8'))
+        self.wfile.write(jsonpickle.dumps(response, unpicklable=False).encode('utf-8'))
 
     def notify_case_status_request(self):
         content_length = int(self.headers['Content-Length'])
